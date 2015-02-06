@@ -21,5 +21,8 @@ setup(
         'nose.plugins.0.10': [
             'excel = excel:Excel'
         ]
-    }
+    },
+    install_requires=[
+        'xlwt-future>=0.8.0'
+    ]
 )
