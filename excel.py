@@ -129,7 +129,7 @@ class Excel(Plugin):
             status = 'error'
             self.stats['errors'] += 1
 
-        self.errorlist.append({'test': test, 'time': taken, 'status': status, 'msg': ''})
+        self.errorlist.append({'test': test, 'time': taken, 'status': status, 'msg': exc_message(err)})
 
     def addFailure(self, test, err):
         """Add failure to report."""
