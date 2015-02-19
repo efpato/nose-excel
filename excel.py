@@ -105,16 +105,18 @@ class Excel(Plugin):
 
         row = 11
         for e in self.errorlist:
-            sheet.write(row, 0, str(e['test']))
-            sheet.write(row, 1, e['time'], TestTimeStyle)
-            sheet.write(row, 2, e['status'], TestStatusStyle)
-            sheet.write(row, 3, e['msg'])
+            sheet.write(row, 0, DATETIME_FORMAT(datetime.now()), StatisticValueStyle)
+            sheet.write(row, 1, str(e['test']))
+            sheet.write(row, 2, e['time'], TestTimeStyle)
+            sheet.write(row, 3, e['status'], TestStatusStyle)
+            sheet.write(row, 4, e['msg'])
             row += 1
 
-        sheet.col(0).width = col_width(max(map(lambda o: len(str(o['test'])), self.errorlist)))
-        sheet.col(1).width = col_width(max(len(self.excel_testsuite_name), len(DATETIME_FORMAT(self.start_datetime))))
-        sheet.col(2).width = col_width(10)
-        sheet.col(3).width = col_width(max(map(lambda o: len(str(o['msg'])), self.errorlist)))
+        sheet.col(0).width = col_width(len(DATETIME_FORMAT(self.start_datetime)))
+        sheet.col(1).width = col_width(max(map(lambda o: len(str(o['test'])), self.errorlist)))
+        sheet.col(2).width = col_width(len(DATETIME_FORMAT(self.start_datetime)))
+        sheet.col(3).width = col_width(10)
+        sheet.col(4).width = col_width(max(map(lambda o: len(str(o['msg'])), self.errorlist)))
 
         book.save(self.error_report_file_name)
 
