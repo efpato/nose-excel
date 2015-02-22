@@ -26,7 +26,8 @@ $ nosetests -h
                         Username for connect to SMTP server.
   --smtp-password=SMTP_PASSWORD
                         Password for connect to SMTP server.
-  --mail-recipients=MAIL_RECIPIENTS
-                        List of mail recipients.
+  --mail-from=MAIL_FROM
+                        Email sender.
+  --mail-to=MAIL_TO     List of mail recipients.
 ...
 ```

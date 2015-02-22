@@ -124,8 +124,12 @@ class Excel(Plugin):
             dest='smtp_password', metavar="SMTP_PASSWORD",
             help="Password for connect to SMTP server.")
         parser.add_option(
-            '--mail-recipients', action='store',
-            dest='mail_recipients', metavar="MAIL_RECIPIENTS",
+            '--mail-from', action='store',
+            dest='mail_from', metavar="MAIL_FROM",
+            help="Email sender.")
+        parser.add_option(
+            '--mail-to', action='store',
+            dest='mail_to', metavar="MAIL_TO",
             help="List of mail recipients.")
 
     def configure(self, options, conf):
@@ -140,7 +144,8 @@ class Excel(Plugin):
             self.smtp_port = int(options.smtp_port)
             self.smtp_user = options.smtp_user
             self.smtp_password = options.smtp_password
-            self.mail_recipients = options.mail_recipients
+            self.mail_from = options.mail_from
+            self.mail_to = options.mail_to
 
     def begin(self):
         self.start_datetime = datetime.now()
@@ -178,7 +183,7 @@ class Excel(Plugin):
 
         row = 11
         for e in self.errorlist:
-            sheet.write(row, 0, DATETIME_FORMAT(datetime.now()), StatisticValueStyle)
+            sheet.write(row, 0, DATETIME_FORMAT(e['datetime']), StatisticValueStyle)
             sheet.write(row, 1, str(e['test']))
             sheet.write(row, 2, e['time'], TestTimeStyle)
             sheet.write(row, 3, e['status'], TestStatusStyle)
@@ -193,7 +198,7 @@ class Excel(Plugin):
 
         book.save(self.error_report_file_name)
 
-        if self.mail_recipients:
+        if self.mail_to:
             msg_body = \
                 """
                 Доброго времени суток!
@@ -214,8 +219,8 @@ class Excel(Plugin):
                     self.stats['skipped'],
                     os.path.basename(self.error_report_file_name))
             send_mail(
-                from_=self.smtp_user,
-                to_=self.mail_recipients.split(','),
+                from_=self.mail_from,
+                to_=self.mail_to.split(','),
                 subject="Результаты проведения автоматизированного тестирования за %s" % date.today(),
                 text=msg_body,
                 files=[self.error_report_file_name],
@@ -235,16 +240,19 @@ class Excel(Plugin):
             status = 'error'
             self.stats['errors'] += 1
 
-        self.errorlist.append({'test': test, 'time': taken, 'status': status, 'msg': exc_message(err)})
+        self.errorlist.append({
+            'datetime': datetime.now(), 'test': test, 'time': taken, 'status': status, 'msg': exc_message(err)})
 
     def addFailure(self, test, err):
         """Add failure to report."""
         taken = self._timeTaken()
         self.stats['failures'] += 1
-        self.errorlist.append({'test': test, 'time': taken, 'status': 'failure', 'msg': exc_message(err)})
+        self.errorlist.append({
+            'datetime': datetime.now(), 'test': test, 'time': taken, 'status': 'failure', 'msg': exc_message(err)})
 
     def addSuccess(self, test):
         """Add success to report."""
         taken = self._timeTaken()
         self.stats['passes'] += 1
-        self.errorlist.append({'test': test, 'time': taken, 'status': 'ok', 'msg': ''})
+        self.errorlist.append({
+            'datetime': datetime.now(), 'test': test, 'time': taken, 'status': 'ok', 'msg': ''})
