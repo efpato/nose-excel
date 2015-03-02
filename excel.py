@@ -131,6 +131,11 @@ class Excel(Plugin):
             '--mail-to', action='store',
             dest='mail_to', metavar="MAIL_TO",
             help="List of mail recipients.")
+        parser.add_option(
+            '--mail-subject', action='store',
+            dest='mail_subject', metavar="MAIL_SUBJECTS",
+            default="Результаты проведения автоматизированного тестирования за %s" % date.today(),
+            help="Email subject.")
 
     def configure(self, options, conf):
         """Configures the excel plugin."""
@@ -146,6 +151,7 @@ class Excel(Plugin):
             self.smtp_password = options.smtp_password
             self.mail_from = options.mail_from
             self.mail_to = options.mail_to
+            self.mail_subject = options.mail_subject
 
     def begin(self):
         self.start_datetime = datetime.now()
@@ -221,7 +227,7 @@ class Excel(Plugin):
             send_mail(
                 from_=self.mail_from,
                 to_=self.mail_to.split(','),
-                subject="Результаты проведения автоматизированного тестирования за %s" % date.today(),
+                subject=self.mail_subject,
                 text=msg_body,
                 files=[self.error_report_file_name],
                 server=self.smtp_server,

@@ -29,5 +29,7 @@ $ nosetests -h
   --mail-from=MAIL_FROM
                         Email sender.
   --mail-to=MAIL_TO     List of mail recipients.
+  --mail-subject=MAIL_SUBJECTS
+                        Email subject.
 ...
 ```
