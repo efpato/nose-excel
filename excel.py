@@ -38,7 +38,7 @@ def send_mail(
         to_,
         subject,
         text,
-        files=[],
+        files=(),
         server="localhost",
         port=587,
         username='',
@@ -189,8 +189,8 @@ class Excel(Plugin):
 
         row = 11
         for e in self.errorlist:
-            sheet.write(row, 0, DATETIME_FORMAT(e['datetime']), StatisticValueStyle)
-            sheet.write(row, 1, str(e['test']))
+            sheet.write(row, 0, e['datetime'], StatisticValueStyle)
+            sheet.write(row, 1, e['test'])
             sheet.write(row, 2, e['time'], TestTimeStyle)
             sheet.write(row, 3, e['status'], TestStatusStyle)
             sheet.write(row, 4, e['msg'])
@@ -237,8 +237,6 @@ class Excel(Plugin):
 
     def addError(self, test, err):
         """Add error/skipped to report."""
-        taken = self._timeTaken()
-
         if issubclass(err[0], SkipTest):
             status = 'skipped'
             self.stats['skipped'] += 1
@@ -247,18 +245,28 @@ class Excel(Plugin):
             self.stats['errors'] += 1
 
         self.errorlist.append({
-            'datetime': datetime.now(), 'test': test, 'time': taken, 'status': status, 'msg': exc_message(err)})
+            'datetime': DATETIME_FORMAT(datetime.now()),
+            'test': str(test),
+            'time': self._timeTaken(),
+            'status': status,
+            'msg': exc_message(err)})
 
     def addFailure(self, test, err):
         """Add failure to report."""
-        taken = self._timeTaken()
         self.stats['failures'] += 1
         self.errorlist.append({
-            'datetime': datetime.now(), 'test': test, 'time': taken, 'status': 'failure', 'msg': exc_message(err)})
+            'datetime': DATETIME_FORMAT(datetime.now()),
+            'test': str(test),
+            'time': self._timeTaken(),
+            'status': 'failure',
+            'msg': exc_message(err)})
 
     def addSuccess(self, test):
         """Add success to report."""
-        taken = self._timeTaken()
         self.stats['passes'] += 1
         self.errorlist.append({
-            'datetime': datetime.now(), 'test': test, 'time': taken, 'status': 'ok', 'msg': ''})
+            'datetime': DATETIME_FORMAT(datetime.now()),
+            'test': str(test),
+            'time': self._timeTaken(),
+            'status': 'ok',
+            'msg': ''})
