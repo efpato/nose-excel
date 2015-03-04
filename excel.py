@@ -4,25 +4,12 @@ import os
 from datetime import datetime, date
 from time import time
 
-import xlwt
+import xlsxwriter
 from nose.exc import SkipTest
 from nose.plugins.base import Plugin
 
 
-SYMBOL_WIDTH = 256
-CELL_MAX_WIDTH = 65535
-
 DATETIME_FORMAT = '{0.day:0>2}.{0.month:0>2}.{0.year} {0.hour:0>2}:{0.minute:0>2}:{0.second:0>2}'.format
-
-StatisticLabelStyle = xlwt.easyxf('alignment: horizontal left; font: bold 1')
-StatisticValueStyle = xlwt.easyxf('alignment: horizontal left;')
-TestTimeStyle = xlwt.easyxf('alignment: horizontal center;', num_format_str='0.000')
-TestStatusStyle = xlwt.easyxf('alignment: horizontal left;')
-
-
-def col_width(text_len):
-    width = SYMBOL_WIDTH * text_len
-    return CELL_MAX_WIDTH if width > CELL_MAX_WIDTH else width
 
 
 def exc_message(exc_info):
@@ -92,9 +79,9 @@ class Excel(Plugin):
         parser.add_option(
             '--excel-file', action='store',
             dest='excel_file', metavar='FILE',
-            default=env.get('NOSE_EXCEL_FILE', 'nosetests.xls'),
+            default=env.get('NOSE_EXCEL_FILE', 'nosetests.xlsx'),
             help=("Path to xls file to store the excel report in. "
-                  "Default is nosetests.xls in the working directory "
+                  "Default is nosetests.xlsx in the working directory "
                   "[NOSE_EXCEL_FILE]"))
         parser.add_option(
             '--excel-testsuite-name', action='store',
@@ -167,44 +154,48 @@ class Excel(Plugin):
         end_datetime = datetime.now()
         total = self.stats['errors'] + self.stats['failures'] + self.stats['passes'] + self.stats['skipped']
 
-        book = xlwt.Workbook()
-        sheet = book.add_sheet('Results')
+        workbook = xlsxwriter.Workbook(self.error_report_file_name, {'constant_memory': True, 'strings_to_urls': True})
 
-        sheet.write(0, 0, 'Suite', StatisticLabelStyle)
-        sheet.write(0, 1, self.excel_testsuite_name, StatisticValueStyle)
+        label = workbook.add_format({'bold': 1, 'align': 'left'})
+        number = workbook.add_format({'align': 'left'})
+        taken = workbook.add_format({'num_format': '0.000', 'align': 'center'})
 
-        sheet.write(2, 0, 'Start datetime', StatisticLabelStyle)
-        sheet.write(2, 1, DATETIME_FORMAT(self.start_datetime), StatisticValueStyle)
-        sheet.write(3, 0, 'End datetime', StatisticLabelStyle)
-        sheet.write(3, 1, DATETIME_FORMAT(end_datetime), StatisticValueStyle)
+        sheet = workbook.add_worksheet()
 
-        sheet.write(5, 0, 'Total', StatisticLabelStyle)
-        sheet.write(5, 1, total, StatisticValueStyle)
-        sheet.write(6, 0, 'Errors', StatisticLabelStyle)
-        sheet.write(6, 1, self.stats['errors'], StatisticValueStyle)
-        sheet.write(7, 0, 'Failures', StatisticLabelStyle)
-        sheet.write(7, 1, self.stats['failures'], StatisticValueStyle)
-        sheet.write(8, 0, 'Passes', StatisticLabelStyle)
-        sheet.write(8, 1, self.stats['passes'], StatisticValueStyle)
-        sheet.write(9, 0, 'Skipped', StatisticLabelStyle)
-        sheet.write(9, 1, self.stats['skipped'], StatisticValueStyle)
+        sheet.write(0, 0, self.excel_testsuite_name, label)
+
+        sheet.write(2, 0, 'Start datetime', label)
+        sheet.write(2, 1, DATETIME_FORMAT(self.start_datetime))
+        sheet.write(3, 0, 'End datetime', label)
+        sheet.write(3, 1, DATETIME_FORMAT(end_datetime))
+
+        sheet.write(5, 0, 'Total', label)
+        sheet.write(5, 1, total, number)
+        sheet.write(6, 0, 'Errors', label)
+        sheet.write(6, 1, self.stats['errors'], number)
+        sheet.write(7, 0, 'Failures', label)
+        sheet.write(7, 1, self.stats['failures'], number)
+        sheet.write(8, 0, 'Passes', label)
+        sheet.write(8, 1, self.stats['passes'], number)
+        sheet.write(9, 0, 'Skipped', label)
+        sheet.write(9, 1, self.stats['skipped'], number)
 
         row = 11
         for e in self.errorlist:
-            sheet.write(row, 0, e['datetime'], StatisticValueStyle)
-            sheet.write(row, 1, e['test'])
-            sheet.write(row, 2, e['time'], TestTimeStyle)
-            sheet.write(row, 3, e['status'], TestStatusStyle)
-            sheet.write(row, 4, e['msg'])
+            sheet.write(row, 0, e[0])
+            sheet.write(row, 1, e[1])
+            sheet.write(row, 2, e[2], taken)
+            sheet.write(row, 3, e[3])
+            sheet.write(row, 4, e[4])
             row += 1
 
-        sheet.col(0).width = col_width(len(DATETIME_FORMAT(self.start_datetime)))
-        sheet.col(1).width = col_width(max(map(lambda o: len(str(o['test'])), self.errorlist)))
-        sheet.col(2).width = col_width(len(DATETIME_FORMAT(self.start_datetime)))
-        sheet.col(3).width = col_width(10)
-        sheet.col(4).width = col_width(max(map(lambda o: len(str(o['msg'])), self.errorlist)))
+        sheet.set_column(0, 0, width=20)
+        sheet.set_column(1, 1, width=max([len(e[1]) for e in self.errorlist]))
+        sheet.set_column(2, 2, width=10)
+        sheet.set_column(3, 3, width=10)
+        sheet.set_column(4, 4, width=max([len(e[4]) for e in self.errorlist]))
 
-        book.save(self.error_report_file_name)
+        workbook.close()
 
         if self.mail_to:
             msg_body = \
@@ -246,29 +237,17 @@ class Excel(Plugin):
             status = 'error'
             self.stats['errors'] += 1
 
-        self.errorlist.append({
-            'datetime': DATETIME_FORMAT(datetime.now()),
-            'test': str(test),
-            'time': self._timeTaken(),
-            'status': status,
-            'msg': exc_message(err)})
+        self.errorlist.append(
+            (DATETIME_FORMAT(datetime.now()), str(test), self._timeTaken(), status, exc_message(err)))
 
     def addFailure(self, test, err):
         """Add failure to report."""
         self.stats['failures'] += 1
-        self.errorlist.append({
-            'datetime': DATETIME_FORMAT(datetime.now()),
-            'test': str(test),
-            'time': self._timeTaken(),
-            'status': 'failure',
-            'msg': exc_message(err)})
+        self.errorlist.append(
+            (DATETIME_FORMAT(datetime.now()), str(test), self._timeTaken(), 'failure', exc_message(err)))
 
     def addSuccess(self, test):
         """Add success to report."""
         self.stats['passes'] += 1
-        self.errorlist.append({
-            'datetime': DATETIME_FORMAT(datetime.now()),
-            'test': str(test),
-            'time': self._timeTaken(),
-            'status': 'ok',
-            'msg': ''})
+        self.errorlist.append(
+            (DATETIME_FORMAT(datetime.now()), str(test), self._timeTaken(), 'ok', ''))

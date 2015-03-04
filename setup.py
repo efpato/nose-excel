@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='nose-excel',
-    version='1.3.2',
+    version='2.0.0',
     url='https://github.com/efpato/nose-excel',
     author='Sergey Demenok',
     author_email='sergey.demenok@gmail.com',
