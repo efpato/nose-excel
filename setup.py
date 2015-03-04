@@ -23,6 +23,6 @@ setup(
         ]
     },
     install_requires=[
-        'xlwt-future>=0.8.0'
+        'XlsxWriter>=0.6.7'
     ]
 )
