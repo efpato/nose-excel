@@ -66,6 +66,8 @@ def send_mail(
 class Excel(Plugin):
     """This plugin provides test results in the standard Excel XLS file."""
     name = 'excel'
+    enabled = False
+    score = 1500
 
     def _timeTaken(self):
         taken = 0
