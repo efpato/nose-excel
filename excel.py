@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 from datetime import datetime, date
+from io import StringIO
 from time import time
 
 import xlsxwriter
 from nose.exc import SkipTest
 from nose.plugins.base import Plugin
+from nose.pyversion import force_unicode
 
 
 DATETIME_FORMAT = '{0.day:0>2}.{0.month:0>2}.{0.year} {0.hour:0>2}:{0.minute:0>2}:{0.second:0>2}'.format
@@ -63,17 +66,41 @@ def send_mail(
     smtp.quit()
 
 
+class Tee(object):
+    def __init__(self, encoding, *args):
+        self._encoding = encoding
+        self._streams = args
+
+    def write(self, data):
+        data = force_unicode(data, self._encoding)
+        for s in self._streams:
+            s.write(data)
+
+    def writelines(self, lines):
+        for line in lines:
+            self.write(line)
+
+    def flush(self):
+        for s in self._streams:
+            s.flush()
+
+    def isatty(self):
+        return False
+
+
 class Excel(Plugin):
     """This plugin provides test results in the standard Excel XLS file."""
     name = 'excel'
     enabled = False
+    encoding = 'UTF-8'
     score = 1500
 
-    def _timeTaken(self):
-        taken = 0
-        if hasattr(self, '_timer'):
-            taken = time() - self._timer
-        return taken
+    def __init__(self):
+        super(Excel, self).__init__()
+        self._capture_stack = []
+        self._currentStdout = None
+        self._currentStderr = None
+        self._timer = None
 
     def options(self, parser, env=os.environ):
         """Sets additional command line options."""
@@ -147,9 +174,9 @@ class Excel(Plugin):
     def begin(self):
         self.start_datetime = datetime.now()
 
-    def beforeTest(self, test):
-        """Initializes a timer before starting a test."""
-        self._timer = time()
+    def finalize(self, test):
+        while self._capture_stack:
+            self._stopCapture()
 
     def report(self, stream):
         """Writes an XLS file"""
@@ -230,6 +257,49 @@ class Excel(Plugin):
                 username=self.smtp_user,
                 password=self.smtp_password)
 
+    def _startCapture(self):
+        self._capture_stack.append((sys.stdout, sys.stderr))
+        self._currentStdout = StringIO()
+        self._currentStderr = StringIO()
+        sys.stdout = Tee(self.encoding, self._currentStdout, sys.stdout)
+        sys.stderr = Tee(self.encoding, self._currentStderr, sys.stderr)
+
+    def _stopCapture(self):
+        if self._capture_stack:
+            sys.stdout, sys.stderr = self._capture_stack.pop()
+
+    def startContext(self, context):
+        self._startCapture()
+
+    def stopContext(self, context):
+        self._stopCapture()
+
+    def beforeTest(self, test):
+        """Initializes a timer before starting a test."""
+        self._timer = time()
+        self._startCapture()
+
+    def afterTest(self, test):
+        self._stopCapture()
+        self._currentStdout = None
+        self._currentStderr = None
+
+    def _getCapturedStdout(self):
+        if self._currentStdout:
+            value = self._currentStdout.getvalue()
+            return value if value else ''
+
+    def _getCapturedStderr(self):
+        if self._currentStderr:
+            value = self._currentStderr.getvalue()
+            return value if value else ''
+
+    def _timeTaken(self):
+        taken = 0
+        if hasattr(self, '_timer'):
+            taken = time() - self._timer
+        return taken
+
     def addError(self, test, err):
         """Add error/skipped to report."""
         if issubclass(err[0], SkipTest):
@@ -239,17 +309,32 @@ class Excel(Plugin):
             status = 'error'
             self.stats['errors'] += 1
 
-        self.errorlist.append(
-            (DATETIME_FORMAT(datetime.now()), str(test), self._timeTaken(), status, exc_message(err)))
+        self.errorlist.append((
+            DATETIME_FORMAT(datetime.now()),
+            str(test),
+            self._timeTaken(),
+            status,
+            '%s\n%s\n%s' % (exc_message(err), self._getCapturedStdout(), self._getCapturedStderr())
+        ))
 
     def addFailure(self, test, err):
         """Add failure to report."""
         self.stats['failures'] += 1
-        self.errorlist.append(
-            (DATETIME_FORMAT(datetime.now()), str(test), self._timeTaken(), 'failure', exc_message(err)))
+        self.errorlist.append((
+            DATETIME_FORMAT(datetime.now()),
+            str(test),
+            self._timeTaken(),
+            'failure',
+            '%s\n%s\n%s' % (exc_message(err), self._getCapturedStdout(), self._getCapturedStderr())
+        ))
 
     def addSuccess(self, test):
         """Add success to report."""
         self.stats['passes'] += 1
-        self.errorlist.append(
-            (DATETIME_FORMAT(datetime.now()), str(test), self._timeTaken(), 'ok', ''))
+        self.errorlist.append((
+            DATETIME_FORMAT(datetime.now()),
+            str(test),
+            self._timeTaken(),
+            'ok',
+            '%s\n%s' % (self._getCapturedStdout(), self._getCapturedStderr())
+        ))
