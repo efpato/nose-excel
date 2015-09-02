@@ -288,16 +288,18 @@ class Excel(Plugin):
         if self._currentStdout:
             value = self._currentStdout.getvalue()
             return value if value else ''
+        return ''
 
     def _getCapturedStderr(self):
         if self._currentStderr:
             value = self._currentStderr.getvalue()
             return value if value else ''
+        return ''
 
     def _timeTaken(self):
         taken = 0
         if hasattr(self, '_timer'):
-            taken = time() - self._timer
+            taken = time() - self._timer if self._timer else 0
         return taken
 
     def addError(self, test, err):
