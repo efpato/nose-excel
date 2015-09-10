@@ -218,11 +218,12 @@ class Excel(Plugin):
             sheet.write(row, 4, e[4])
             row += 1
 
-        sheet.set_column(0, 0, width=20)
-        sheet.set_column(1, 1, width=max([len(e[1]) for e in self.errorlist]))
-        sheet.set_column(2, 2, width=10)
-        sheet.set_column(3, 3, width=10)
-        sheet.set_column(4, 4, width=max([len(e[4]) for e in self.errorlist]))
+        if self.errorlist:
+            sheet.set_column(0, 0, width=20)
+            sheet.set_column(1, 1, width=max([len(e[1]) for e in self.errorlist]))
+            sheet.set_column(2, 2, width=10)
+            sheet.set_column(3, 3, width=10)
+            sheet.set_column(4, 4, width=max([len(e[4]) for e in self.errorlist]))
 
         workbook.close()
 
